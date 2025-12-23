@@ -1,0 +1,404 @@
+esphome:
+  name: iotawatt-monitor
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+mqtt:
+  broker: !secret mqtt_broker
+
+web_server:
+  port: 80
+  version: 3
+  local: true
+  log: true
+  sorting_groups:
+    - id: sorting_group_reference
+      name: "Reference"
+      sorting_weight: 10
+    - id: sorting_group_power
+      name: "Power"
+      sorting_weight: 20
+    - id: sorting_group_power_factor
+      name: "Power Factor"
+      sorting_weight: 30
+    - id: sorting_group_current
+      name: "Current"
+      sorting_weight: 40
+
+logger:
+  level: INFO
+  baud_rate: 0
+
+ota:
+  password: !secret ota_password
+  platform: esphome
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/pawel-sw/esphome-iotawatt
+
+sensor:
+  - platform: iotawatt
+    id: my_iotawatt
+    update_interval: 5s
+    clk_pin: 12
+    mosi_pin: 11
+    miso_pin: 13
+    cs_pin_0: 9
+    cs_pin_1: 10
+    inputs:
+      - channel: 0
+        name: "Reference"
+        type: "VT"
+        model: "JW-95001-NA"
+        cal: 11.12
+        phase: 0.74
+        voltage:
+          name: "Reference Voltage"
+          web_server:
+            sorting_group_id: sorting_group_reference
+            sorting_weight: 1
+        frequency:
+          name: "Reference Frequency"
+          web_server:
+            sorting_group_id: sorting_group_reference
+            sorting_weight: 2
+      - channel: 1
+        name: "L1"
+        type: "CT"
+        model: "AcuCT-H100-200"
+        phase: 0.25
+        turns: 4000
+        cal: 200
+        reverse: true
+        power:
+          name: "L1 Power"
+          id: l1_power
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 0
+        current:
+          name: "L1 Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 0
+        power_factor:
+          name: "L1 PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 0
+      - channel: 2
+        name: "L2"
+        type: "CT"
+        model: "AcuCT-H100-200"
+        phase: 0.25
+        turns: 4000
+        reverse: true
+        cal: 200
+        power:
+          name: "L2 Power"
+          id: l2_power
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 1
+        current:
+          name: "L2 Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 1
+        power_factor:
+          name: "L2 PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 1
+      - channel: 3
+        name: "Kitchen Receptacles"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        reverse: true
+        cal: 50
+        power:
+          name: "Kitchen Receptacles Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 2
+        current:
+          name: "Kitchen Receptacles Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 2
+        power_factor:
+          name: "Kitchen Receptacles PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 2
+      - channel: 4
+        name: "Kitchen Receptacles 2"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        reverse: true
+        cal: 50
+        power:
+          name: "Kitchen Receptacles 2 Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 3
+        current:
+          name: "Kitchen Receptacles 2 Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 3
+        power_factor:
+          name: "Kitchen Receptacles 2 PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 3
+      - channel: 5
+        name: "Utility/Storage"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        reverse: true
+        cal: 50
+        power:
+          name: "Utility/Storage Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 4
+        current:
+          name: "Utility/Storage Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 4
+        power_factor:
+          name: "Utility/Storage PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 4
+      - channel: 6
+        name: "Bathroom Receptacles"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        cal: 50
+        power:
+          name: "Bathroom Receptacles Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 5
+        current:
+          name: "Bathroom Receptacles Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 5
+        power_factor:
+          name: "Bathroom Receptacles PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 5
+      - channel: 7
+        name: "Refrigerator"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        reverse: true
+        cal: 50
+        power:
+          name: "Refrigerator Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 6
+        current:
+          name: "Refrigerator Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 6
+        power_factor:
+          name: "Refrigerator PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 6
+      - channel: 8
+        name: "AC"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        cal: 50
+        double: true
+        power:
+          name: "AC Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 7
+        current:
+          name: "AC Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 7
+        power_factor:
+          name: "AC PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 7
+      - channel: 9
+        name: "Garage"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        cal: 50
+        power:
+          name: "Garage Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 8
+        current:
+          name: "Garage Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 8
+        power_factor:
+          name: "Garage PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 8
+      - channel: 10
+        name: "Dishwasher"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        reverse: true
+        cal: 50
+        power:
+          name: "Dishwasher Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 9
+        current:
+          name: "Dishwasher Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 9
+        power_factor:
+          name: "Dishwasher PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 9
+      - channel: 11
+        name: "Downstairs"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        reverse: false
+        cal: 50
+        power:
+          name: "Downstairs Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 10
+        current:
+          name: "Downstairs Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 10
+        power_factor:
+          name: "Downstairs PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 10
+      - channel: 12
+        name: "Outdoor Receptacles"
+        type: "CT"
+        model: "AcuCT-H040-50"
+        phase: 1
+        turns: 1000
+        cal: 50
+        power:
+          name: "Outdoor Receptacles Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 11
+        current:
+          name: "Outdoor Receptacles Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 11
+        power_factor:
+          name: "Outdoor Receptacles PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 11
+      - channel: 13
+        name: "Dryer"
+        type: "CT"
+        model: "AcuCT-H063-100"
+        phase: 0.6
+        turns: 2000
+        reverse: false
+        cal: 100
+        power:
+          name: "Dryer Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 12
+        current:
+          name: "Dryer Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 12
+        power_factor:
+          name: "Dryer PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 12
+      - channel: 14
+        name: "Range"
+        type: "CT"
+        model: "AcuCT-H063-100"
+        phase: 0.6
+        turns: 2000
+        reverse: false
+        cal: 100
+        power:
+          name: "Range Power"
+          web_server:
+            sorting_group_id: sorting_group_power
+            sorting_weight: 13
+        current:
+          name: "Range Current"
+          web_server:
+            sorting_group_id: sorting_group_current
+            sorting_weight: 13
+        power_factor:
+          name: "Range PF"
+          web_server:
+            sorting_group_id: sorting_group_power_factor
+            sorting_weight: 13
+  - platform: template
+    name: "Total Power"
+    id: total_power
+    unit_of_measurement: "W"
+    lambda: |-
+      return id(l1_power).state + id(l2_power).state;
+    update_interval: 5s
+    web_server:
+      sorting_group_id: sorting_group_power
+      sorting_weight: -1
