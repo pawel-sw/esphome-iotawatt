@@ -7,6 +7,9 @@
 #include "driver/gpio.h"
 #include "soc/spi_struct.h"
 #include "hal/gpio_ll.h"
+#include <esp_cpu.h>
+
+#define CYCLES_PER_US 240
 
 namespace esphome {
 namespace iotawatt {
@@ -85,14 +88,13 @@ void IoTaWattComponent::setup() {
   xTaskCreatePinnedToCore(sampling_task, "iotawatt_task", 8192, this, configMAX_PRIORITIES - 1, &task_handle_, 1);
 }
 
-void IoTaWattComponent::add_input_vt(uint8_t channel, std::string name, float cal, float phase, float turns, bool reverse, sensor::Sensor *voltage_sensor, sensor::Sensor *frequency_sensor, const std::vector<float>& p50, const std::vector<float>& p60) {
+void IoTaWattComponent::add_input_vt(uint8_t channel, std::string name, float cal, float phase, bool reverse, sensor::Sensor *voltage_sensor, sensor::Sensor *frequency_sensor, const std::vector<float>& p50, const std::vector<float>& p60) {
   InputConfig input;
   input.channel = channel;
   input.name = name;
   input.type = INPUT_TYPE_VT;
   input.cal = cal;
   input.phase = phase;
-  input.turns = turns;
   input.reverse = reverse;
   input.vphase = 0.0f;
   input.phase_table.p50 = p50;
@@ -100,17 +102,22 @@ void IoTaWattComponent::add_input_vt(uint8_t channel, std::string name, float ca
   input.phase_table.base_phase = phase;
   input.voltage_sensor = voltage_sensor;
   input.frequency_sensor = frequency_sensor;
+  
+  // Precalculate SPI values
+  input.cs_mask = (1 << this->cs_pin_0_->get_pin()); // VT is always on ADC0
+  input.data_word = (0x06 | ((input.channel % 8 >> 2) & 0x01)) | 
+                    (((input.channel % 8 & 0x03) << 6) << 8);
+
   inputs_.push_back(input);
 }
 
-void IoTaWattComponent::add_input_ct(uint8_t channel, std::string name, float cal, float phase, float turns, bool reverse, bool double_input, float vphase, sensor::Sensor *power_sensor, sensor::Sensor *current_sensor, sensor::Sensor *pf_sensor, const std::vector<float>& p50, const std::vector<float>& p60) {
+void IoTaWattComponent::add_input_ct(uint8_t channel, std::string name, float cal, float phase, bool reverse, bool double_input, float vphase, sensor::Sensor *power_sensor, sensor::Sensor *current_sensor, sensor::Sensor *pf_sensor, const std::vector<float>& p50, const std::vector<float>& p60) {
   InputConfig input;
   input.channel = channel;
   input.name = name;
   input.type = INPUT_TYPE_CT;
   input.cal = cal;
   input.phase = phase;
-  input.turns = turns;
   input.reverse = reverse;
   input.double_input = double_input;
   input.vphase = vphase;
@@ -120,6 +127,13 @@ void IoTaWattComponent::add_input_ct(uint8_t channel, std::string name, float ca
   input.power_sensor = power_sensor;
   input.current_sensor = current_sensor;
   input.pf_sensor = pf_sensor;
+
+  // Precalculate SPI values
+  input.cs_mask = (1 << ((input.channel < 8) ? this->cs_pin_0_->get_pin() : this->cs_pin_1_->get_pin()));
+  uint8_t chan = input.channel >= 8 ? input.channel - 7 : input.channel;
+  input.data_word = (0x06 | ((chan >> 2) & 0x01)) | 
+                    (((chan & 0x03) << 6) << 8);
+
   inputs_.push_back(input);
 }
 
@@ -246,32 +260,18 @@ static float get_phase(const InputConfig& config, float rms_current, float frequ
   return phase;
 }
 
-static IRAM_ATTR __attribute__((noinline)) uint16_t read_adc_fast(int cs_pin, uint8_t channel) {
-    GPIO.out_w1tc = (1 << cs_pin);
-
-    uint32_t data_word = (0x06 | ((channel >> 2) & 0x01)) | 
-                         (((channel & 0x03) << 6) << 8); 
-
-    GPSPI2.ms_dlen.ms_data_bitlen = 23; // 24 bits
+static inline uint16_t read_adc_fast(uint32_t cs_mask, uint32_t data_word) {
+    GPIO.out_w1tc = cs_mask;
     GPSPI2.data_buf[0] = data_word;
-
-    // DELAY (Required for MCP3208 tCSS > 100ns)
-    // ESP32-S3 @ 240MHz is ~4ns per instruction. 20 nops + 2 instructions = ~100ns
-    asm volatile("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
-    asm volatile("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
-
     GPSPI2.cmd.usr = 1;
-
     while (GPSPI2.cmd.usr);
-    GPIO.out_w1ts = (1 << cs_pin);
+    GPIO.out_w1ts = cs_mask;
     uint32_t val = GPSPI2.data_buf[0];
     return (((val >> 8) & 0x0F) << 8) | ((val >> 16) & 0xFF);
 }
 
 static SampleCycleResult sample_cycle(const InputConfig &vt_config,
                                       const InputConfig &ct_config, 
-                                      int vt_cs_pin, uint8_t vt_adc_chan,
-                                      int ct_cs_pin, uint8_t ct_adc_chan,
                                       uint16_t &vt_offset, uint16_t &ct_offset,
                                       float &frequency, float aref) {
   SampleCycleResult result;
@@ -285,9 +285,13 @@ static SampleCycleResult sample_cycle(const InputConfig &vt_config,
   // Scan VT for 20ms to find midpoint and confirm signal
   uint16_t min_val = 4096;
   uint16_t max_val = 0;
-  int64_t scan_end = esp_timer_get_time() + 20000; // 20ms
-  while (esp_timer_get_time() < scan_end) {
-    uint16_t r = read_adc_fast(vt_cs_pin, vt_adc_chan);
+  uint32_t scan_start = esp_cpu_get_cycle_count();
+  const uint32_t scan_cycles = 20000 * CYCLES_PER_US;
+  uint32_t vt_cs_mask = vt_config.cs_mask;
+  uint32_t vt_data_word = vt_config.data_word;
+  
+  for(uint16_t i=0; i<=1500; i++) {
+    uint16_t r = read_adc_fast(vt_cs_mask, vt_data_word);
     if (r < min_val) min_val = r;
     if (r > max_val) max_val = r;
   }
@@ -299,7 +303,7 @@ static SampleCycleResult sample_cycle(const InputConfig &vt_config,
   }
 
   // Prime voltage
-  int16_t rawV = static_cast<int16_t>(read_adc_fast(vt_cs_pin, vt_adc_chan)) - static_cast<int16_t>(vt_offset);
+  int16_t rawV = static_cast<int16_t>(read_adc_fast(vt_config.cs_mask, vt_config.data_word)) - static_cast<int16_t>(vt_offset);
   int16_t lastV = rawV;
   int16_t rawI = 0;
 
@@ -310,14 +314,17 @@ static SampleCycleResult sample_cycle(const InputConfig &vt_config,
   bool Vsensed = false;
 
   int samples = 0;
-  int64_t start_us = esp_timer_get_time();
-  const int64_t timeout_us = 12000; // slightly more than half-cycle @50Hz
-  int64_t firstCrossUs = 0;
-  int64_t lastCrossUs = 0;
+  uint32_t start_cycles = esp_cpu_get_cycle_count();
+  const uint32_t timeout_cycles = 12000 * CYCLES_PER_US; // slightly more than half-cycle @50Hz
+  int64_t first_cross_us = 0;
+  int64_t last_cross_us = 0;
+
+  uint32_t ct_cs_mask = ct_config.cs_mask;
+  uint32_t ct_data_word = ct_config.data_word;
 
   do {
     // Sample current (I)
-    rawI = static_cast<int16_t>(read_adc_fast(ct_cs_pin, ct_adc_chan)) - static_cast<int16_t>(ct_offset);
+    rawI = static_cast<int16_t>(read_adc_fast(ct_cs_mask, ct_data_word)) - static_cast<int16_t>(ct_offset);
 
     // Average voltage for alignment with last voltage sample
     int16_t avgV = (rawV + lastV) >> 1;
@@ -341,10 +348,10 @@ static SampleCycleResult sample_cycle(const InputConfig &vt_config,
     crossGuard--;
 
     // Sample voltage (V)
-    rawV = static_cast<int16_t>(read_adc_fast(vt_cs_pin, vt_adc_chan)) - static_cast<int16_t>(vt_offset);
+    rawV = static_cast<int16_t>(read_adc_fast(vt_cs_mask, vt_data_word)) - static_cast<int16_t>(vt_offset);
 
     // Timeout safeguards
-    if ((esp_timer_get_time() - start_us) > timeout_us) {
+    if ((esp_cpu_get_cycle_count() - start_cycles) > timeout_cycles) {
       return result;
     } else if (!crossGuard && !Vsensed) {
       return result;
@@ -355,13 +362,13 @@ static SampleCycleResult sample_cycle(const InputConfig &vt_config,
 
     // Zero-cross detection with guard
     if (((rawV ^ lastV) & crossGuard) < 0) {
-      start_us = esp_timer_get_time();
+      start_cycles = esp_cpu_get_cycle_count();
       crossCount++;
       if (crossCount == 1) {
-        firstCrossUs = esp_timer_get_time();
+        first_cross_us = esp_timer_get_time();
         crossGuard = 10;
       } else if (crossCount == crossLimit) {
-        lastCrossUs = esp_timer_get_time();
+        last_cross_us = esp_timer_get_time();
         v_samples[samples] = (lastV + rawV) >> 1;
         i_samples[samples] = storeI;
         crossGuard = 0;
@@ -394,7 +401,7 @@ static SampleCycleResult sample_cycle(const InputConfig &vt_config,
     sumVI += static_cast<int64_t>(i_val) * v_val;
   }
 
-  if (samples == 0 || firstCrossUs == 0 || lastCrossUs <= firstCrossUs) {
+  if (samples == 0 || first_cross_us == 0 || last_cross_us <= first_cross_us) {
     return result;
   }
 
@@ -421,7 +428,7 @@ static SampleCycleResult sample_cycle(const InputConfig &vt_config,
   result.ct_offset = ct_offset;
 
   // Frequency estimate
-  float Hz = 1000000.0f / static_cast<float>(lastCrossUs - firstCrossUs);
+  float Hz = 1000000.0f / static_cast<float>(last_cross_us - first_cross_us);
   frequency = (0.9f * frequency) + (0.1f * Hz);
   result.frequency = frequency;
 
@@ -525,7 +532,7 @@ void IoTaWattComponent::sampling_task(void *arg) {
   while (true) {
     spi_device_acquire_bus(self->spi_device_0_, portMAX_DELAY);
     // Ensure SPI hardware registers are primed for VT before fast path
-    read_adc(self->spi_device_0_, vt_cs_pin, vt_adc_chan);
+    read_adc_fast(vt_config.cs_mask, vt_config.data_word);
 
     float vt_rms_for_sweep = 0.0f;
     bool vt_rms_valid = false;
@@ -542,8 +549,6 @@ void IoTaWattComponent::sampling_task(void *arg) {
       float aref = read_aref(self->spi_device_0_, self->cs_pin_1_->get_pin());
 
       SampleCycleResult res = sample_cycle(vt_config, input, 
-                                           vt_cs_pin, vt_adc_chan,
-                                           ct_cs_pin, ct_adc_chan,
                                            vt_offset, ct_offsets[input.channel],
                                            self->frequency_, aref);
 

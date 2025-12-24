@@ -29,11 +29,12 @@ struct InputConfig {
   InputType type;
   float cal;
   float phase;
-  float turns;
   bool reverse;
   bool double_input;
   float vphase;  // Gross phase correction for 3-phase
   PhaseTable phase_table;
+  uint32_t data_word;
+  uint32_t cs_mask;
   
   sensor::Sensor *voltage_sensor{nullptr};
   sensor::Sensor *frequency_sensor{nullptr};
@@ -55,9 +56,9 @@ class IoTaWattComponent : public PollingComponent {
   void set_cs_pin_0(InternalGPIOPin *pin) { cs_pin_0_ = pin; }
   void set_cs_pin_1(InternalGPIOPin *pin) { cs_pin_1_ = pin; }
 
-  void add_input_vt(uint8_t channel, std::string name, float cal, float phase, float turns, bool reverse, sensor::Sensor *voltage_sensor, sensor::Sensor *frequency_sensor, const std::vector<float>& p50, const std::vector<float>& p60);
+  void add_input_vt(uint8_t channel, std::string name, float cal, float phase, bool reverse, sensor::Sensor *voltage_sensor, sensor::Sensor *frequency_sensor, const std::vector<float>& p50, const std::vector<float>& p60);
 
-  void add_input_ct(uint8_t channel, std::string name, float cal, float phase, float turns, bool reverse, bool double_input, float vphase, sensor::Sensor *power_sensor, sensor::Sensor *current_sensor, sensor::Sensor *pf_sensor, const std::vector<float>& p50, const std::vector<float>& p60);
+  void add_input_ct(uint8_t channel, std::string name, float cal, float phase, bool reverse, bool double_input, float vphase, sensor::Sensor *power_sensor, sensor::Sensor *current_sensor, sensor::Sensor *pf_sensor, const std::vector<float>& p50, const std::vector<float>& p60);
 
  protected: 
   static void sampling_task(void *arg);
