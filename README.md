@@ -57,7 +57,6 @@ sensor:
         type: "VT"
         model: "JW-95001-NA"
         cal: 11.12
-        phase: 0.74
         voltage:
           name: "Reference Voltage"
         frequency:
@@ -66,9 +65,6 @@ sensor:
         name: "Main L1"
         type: "CT"
         model: "AcuCT-H100-200"
-        phase: 0.25
-        turns: 4000
-        cal: 200
         reverse: true
         power:
           name: "L1 Power"
@@ -81,9 +77,6 @@ sensor:
         name: "Main L2"
         type: "CT"
         model: "AcuCT-H100-200"
-        phase: 0.25
-        turns: 4000
-        cal: 200
         reverse: true
         power:
           name: "L2 Power"
@@ -96,9 +89,6 @@ sensor:
         name: "Dryer"
         type: "CT"
         model: "AcuCT-H063-100"
-        phase: 0.6
-        turns: 2000
-        cal: 100
         double: true
         vphase: 120.0
         power:
@@ -122,3 +112,4 @@ sensor:
 ## Credits
 
 Based on the original IoTaWatt logic but adapted for ESPHome and ESP32-S3 hardware swaps.
+
