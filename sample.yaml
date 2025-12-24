@@ -60,7 +60,6 @@ sensor:
         type: "VT"
         model: "JW-95001-NA"
         cal: 11.12
-        phase: 0.74
         voltage:
           name: "Reference Voltage"
           web_server:
@@ -75,9 +74,6 @@ sensor:
         name: "L1"
         type: "CT"
         model: "AcuCT-H100-200"
-        phase: 0.25
-        turns: 4000
-        cal: 200
         reverse: true
         power:
           name: "L1 Power"
@@ -99,10 +95,7 @@ sensor:
         name: "L2"
         type: "CT"
         model: "AcuCT-H100-200"
-        phase: 0.25
-        turns: 4000
         reverse: true
-        cal: 200
         power:
           name: "L2 Power"
           id: l2_power
@@ -123,10 +116,7 @@ sensor:
         name: "Kitchen Receptacles"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
         reverse: true
-        cal: 50
         power:
           name: "Kitchen Receptacles Power"
           web_server:
@@ -146,10 +136,7 @@ sensor:
         name: "Kitchen Receptacles 2"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
         reverse: true
-        cal: 50
         power:
           name: "Kitchen Receptacles 2 Power"
           web_server:
@@ -169,10 +156,7 @@ sensor:
         name: "Utility/Storage"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
         reverse: true
-        cal: 50
         power:
           name: "Utility/Storage Power"
           web_server:
@@ -192,9 +176,6 @@ sensor:
         name: "Bathroom Receptacles"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
-        cal: 50
         power:
           name: "Bathroom Receptacles Power"
           web_server:
@@ -214,10 +195,7 @@ sensor:
         name: "Refrigerator"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
         reverse: true
-        cal: 50
         power:
           name: "Refrigerator Power"
           web_server:
@@ -237,9 +215,6 @@ sensor:
         name: "AC"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
-        cal: 50
         double: true
         power:
           name: "AC Power"
@@ -260,9 +235,6 @@ sensor:
         name: "Garage"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
-        cal: 50
         power:
           name: "Garage Power"
           web_server:
@@ -282,10 +254,7 @@ sensor:
         name: "Dishwasher"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
         reverse: true
-        cal: 50
         power:
           name: "Dishwasher Power"
           web_server:
@@ -305,10 +274,7 @@ sensor:
         name: "Downstairs"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
         reverse: false
-        cal: 50
         power:
           name: "Downstairs Power"
           web_server:
@@ -328,9 +294,6 @@ sensor:
         name: "Outdoor Receptacles"
         type: "CT"
         model: "AcuCT-H040-50"
-        phase: 1
-        turns: 1000
-        cal: 50
         power:
           name: "Outdoor Receptacles Power"
           web_server:
@@ -350,10 +313,7 @@ sensor:
         name: "Dryer"
         type: "CT"
         model: "AcuCT-H063-100"
-        phase: 0.6
-        turns: 2000
         reverse: false
-        cal: 100
         power:
           name: "Dryer Power"
           web_server:
@@ -373,10 +333,7 @@ sensor:
         name: "Range"
         type: "CT"
         model: "AcuCT-H063-100"
-        phase: 0.6
-        turns: 2000
         reverse: false
-        cal: 100
         power:
           name: "Range Power"
           web_server:
